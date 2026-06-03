@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Logo } from "@/components/brand/logo";
 
 const features = [
   {
@@ -112,12 +113,7 @@ export default function LandingPage() {
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-zinc-800/50 bg-zinc-950/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-emerald-500 flex items-center justify-center">
-              <Zap className="h-4 w-4 text-black" />
-            </div>
-            <span className="font-semibold tracking-tight">EKOS</span>
-          </div>
+          <Logo size={28} />
 
           <div className="hidden md:flex items-center gap-6 ml-6">
             {["Features", "Pricing", "FAQ", "Docs"].map((item) => (
@@ -406,11 +402,8 @@ export default function LandingPage() {
       <footer className="border-t border-zinc-800 py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-md bg-emerald-500 flex items-center justify-center">
-              <Zap className="h-3.5 w-3.5 text-black" />
-            </div>
-            <span className="text-sm font-semibold">EKOS</span>
-            <span className="text-xs text-zinc-600 ml-2">Repository Intelligence System</span>
+            <Logo size={24} />
+            <span className="text-xs text-zinc-600">Repository Intelligence System</span>
           </div>
           <p className="text-xs text-zinc-600">© 2024 EKOS. Built for developers.</p>
         </div>

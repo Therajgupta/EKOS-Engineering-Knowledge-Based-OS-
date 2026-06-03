@@ -14,7 +14,9 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "EKOS — Repository Intelligence System",
-  description: "Understand any codebase in minutes. EKOS transforms repositories into structured knowledge and lets you chat with your codebase using AI.",
+  description:
+    "Understand any codebase in minutes. EKOS transforms repositories into structured knowledge and lets you chat with your codebase using AI.",
+  icons: { icon: "/ekos-logo.png", apple: "/ekos-logo.png" },
 };
 
 export default function RootLayout({
@@ -27,7 +29,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-100">{children}</body>
+      <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-100">
+        {children}
+      </body>
     </html>
   );
 }

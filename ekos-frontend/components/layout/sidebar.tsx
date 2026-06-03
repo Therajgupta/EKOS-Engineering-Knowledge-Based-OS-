@@ -10,10 +10,10 @@ import {
   BarChart3,
   BookOpen,
   Settings,
-  Zap,
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/brand/logo";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -31,10 +31,7 @@ export function Sidebar() {
     <aside className="flex h-full w-60 flex-col border-r border-zinc-800 bg-zinc-950">
       {/* Logo */}
       <div className="flex h-14 items-center gap-2.5 border-b border-zinc-800 px-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500">
-          <Zap className="h-4 w-4 text-black" />
-        </div>
-        <span className="font-semibold text-zinc-100 tracking-tight">EKOS</span>
+        <Logo size={28} />
         <span className="ml-auto text-[10px] text-zinc-600 font-mono bg-zinc-800 px-1.5 py-0.5 rounded">
           v0.1
         </span>

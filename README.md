@@ -265,6 +265,8 @@ EKOS intelligently routes every query to minimize cost without sacrificing quali
 - Insights cards: architecture summary, components, endpoints, DB models, dependencies
 - Documentation generator with markdown preview
 - Language distribution and component charts
+- EKOS brand logo in sidebar, landing page, and browser tab
+- Configurable API URL via `NEXT_PUBLIC_API_URL` for production deploys
 
 ---
 
@@ -272,20 +274,21 @@ EKOS intelligently routes every query to minimize cost without sacrificing quali
 
 ### Prerequisites
 
-```bash
-Python 3.11+
-Node.js 18+
-Git
-```
+- **Python** 3.11+
+- **Node.js** 18+
+- **Git**
+- **Groq API key** — [console.groq.com](https://console.groq.com)
 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-org/ekos.git
-cd ekos
+git clone https://github.com/Therajgupta/EKOS-Engineering-Knowledge-Based-OS-.git
+cd EKOS-Engineering-Knowledge-Based-OS-
 ```
 
-### 2. Set up environment variables
+### 2. Environment variables
+
+From the project root:
 
 ```bash
 cp .env.example .env
@@ -297,44 +300,60 @@ Edit `.env`:
 GROQ_API_KEY=your_groq_api_key_here
 ```
 
-Get your Groq API key at [console.groq.com](https://console.groq.com)
+Optional (production / remote Qdrant):
 
-### 3. Install backend dependencies
+```env
+QDRANT_URL=http://127.0.0.1:6333
+CORS_ORIGINS=http://localhost:3000,https://your-frontend.vercel.app
+```
+
+For the frontend, copy `ekos-frontend/.env.example` → `ekos-frontend/.env.local` and set `NEXT_PUBLIC_API_URL` when not using localhost.
+
+### 3. Backend setup
 
 ```bash
+python -m venv venv
+
+# Windows
+.\venv\Scripts\activate
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+
+# macOS / Linux
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Or use the helper scripts on Windows: `scripts\start-backend.bat`
+**Windows — start API (recommended):**
 
-**Deploying to Vercel/Netlify?** See [DEPLOYMENT.md](./DEPLOYMENT.md) — frontend on Vercel/Netlify, backend on Render/Railway.
+```cmd
+scripts\start-backend.bat
+```
+
+This stops any old process on port 8000 (avoids Qdrant file-lock errors), then starts the server.
+
+**Manual start:**
+
+```bash
+python -m uvicorn backend.api:app --host 0.0.0.0 --port 8000
+```
+
+> Avoid `uvicorn --reload` with local `qdrant_data/` — two processes can lock the database. Use `scripts\stop-backend.bat` before restarting.
+
+- API: http://localhost:8000  
+- Swagger: http://localhost:8000/docs  
+- Health: http://localhost:8000/health  
 
 ### 4. Index a repository
 
-```python
-# backend/main.py
-from ingestion.github_clone import clone_repository
-
-repo_url = "https://github.com/your-target/repo.git"
-clone_repository(repo_url)
-```
-
-Then run the indexing pipeline:
+**CLI** (from project root, with venv active):
 
 ```bash
-python -m backend.main
+python -m backend.main https://github.com/user/repo.git my-repo-name
 ```
 
-### 5. Start the backend API
+**Dashboard UI:** open http://localhost:3000/dashboard/upload and paste a GitHub URL.
 
-```bash
-python -m uvicorn backend.api:app --reload --host 0.0.0.0 --port 8000
-```
-
-API available at: `http://localhost:8000`
-Swagger docs at: `http://localhost:8000/docs`
-
-### 6. Start the frontend
+### 5. Frontend setup
 
 ```bash
 cd ekos-frontend
@@ -342,101 +361,135 @@ npm install
 npm run dev
 ```
 
-Frontend available at: `http://localhost:3000`
+- App: http://localhost:3000  
+- Dashboard: http://localhost:3000/dashboard  
+- Chat: http://localhost:3000/dashboard/chat  
+
+Ensure the backend is running first; the dashboard shows backend online/offline status.
+
+---
+
+## Deployment
+
+EKOS is split into two deployable parts:
+
+| Part | Host | Config |
+|------|------|--------|
+| **Frontend** (Next.js) | [Vercel](https://vercel.com) or [Netlify](https://netlify.com) | Root: `ekos-frontend`, env: `NEXT_PUBLIC_API_URL` |
+| **Backend** (FastAPI) | [Render](https://render.com), Railway, or Fly.io | `requirements.txt`, `GROQ_API_KEY`, `CORS_ORIGINS` |
+
+Vercel/Netlify **cannot** run the Python API (embeddings, Qdrant, indexing). Deploy the backend separately, then point the frontend at it.
+
+Full step-by-step guide: **[DEPLOYMENT.md](./DEPLOYMENT.md)**
+
+Repo includes `vercel.json`, `netlify.toml`, and `render.yaml` as starting templates.
 
 ---
 
 ## API Reference
 
+Base URL: `http://localhost:8000` (or your deployed backend).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `GET` | `/repositories` | List indexed repositories + stats |
+| `GET` | `/repositories/{name}` | Stats for one repository |
+| `POST` | `/index` | Start indexing a GitHub repo (background) |
+| `GET` | `/index/{name}/status` | Indexing job status |
+| `POST` | `/ask` | Natural-language Q&A over indexed code |
+
 ### `POST /ask`
 
-Ask a natural language question about the indexed repository.
-
 **Request:**
+
 ```json
 {
-  "question": "How does authentication work in this codebase?"
+  "question": "How does authentication work in this codebase?",
+  "repository": "mern-app"
 }
 ```
+
+`repository` is optional — filters retrieval to one indexed repo.
 
 **Response:**
+
 ```json
 {
-  "answer": "Authentication is implemented using JWT tokens. The AuthMiddleware in backend/middleware/auth.js validates the token on each protected route...",
-  "route": "large"
+  "answer": "...",
+  "route": "large",
+  "model": "llama-3.3-70b-versatile",
+  "citations": [{ "file": "App.js", "chunk_type": "component", "start_line": 7 }],
+  "context_chunks": 8
 }
 ```
 
-`route` indicates which model handled the query: `"small"` (llama-3.1-8b) or `"large"` (llama-3.3-70b).
+`route`: `"small"` (llama-3.1-8b) or `"large"` (llama-3.3-70b).
+
+### `POST /index`
+
+**Request:**
+
+```json
+{
+  "github_url": "https://github.com/user/repo.git",
+  "repo_name": "my-repo"
+}
+```
+
+Poll `GET /index/{repo_name}/status` until `status` is `completed` or `failed`.
 
 ---
 
 ## Project Structure
 
 ```
-ekos/
-├── .env                          # Environment variables
+EOS/
+├── .env.example                  # Backend secrets template (copy to .env)
+├── requirements.txt              # Python dependencies
+├── DEPLOYMENT.md                 # Vercel / Netlify / Render guide
+├── vercel.json                   # Vercel (frontend root: ekos-frontend)
+├── netlify.toml                  # Netlify frontend build
+├── render.yaml                   # Render backend blueprint
 ├── README.md
 │
+├── scripts/
+│   ├── start-backend.bat         # Windows: stop old server + start API
+│   ├── stop-backend.bat          # Windows: free port 8000 / Qdrant lock
+│   └── start-backend.ps1         # PowerShell variant (may need execution policy)
+│
 ├── backend/
-│   ├── api.py                    # FastAPI application + /ask endpoint
-│   ├── main.py                   # Repository indexing entry point
-│   │
-│   ├── ingestion/
-│   │   └── github_clone.py       # Git clone via GitPython
-│   │
-│   ├── parsers/
-│   │   ├── treesitter_parser.py  # File discovery (.py, .js, .ts)
-│   │   └── language_detector.py  # Language identification
-│   │
-│   ├── extractors/
-│   │   └── javascript_extractor.py  # AST → Knowledge Objects
-│   │
-│   ├── models/
-│   │   └── knowledge_object.py   # Pydantic KnowledgeObject schema
-│   │
-│   ├── embeddings/
-│   │   └── embedder.py           # BAAI/bge-small-en-v1.5 encoder
-│   │
-│   ├── indexing/
-│   │   └── indexer.py            # Embed + store pipeline
-│   │
-│   ├── vector_db/
-│   │   └── qdrant_manager.py     # Qdrant CRUD + search
-│   │
-│   ├── retrieval/
-│   │   └── context_builder.py    # Build LLM context from results
-│   │
-│   ├── router/
-│   │   └── question_router.py    # Small/large model routing
-│   │
-│   └── llm/
-│       └── llm_manager.py        # Groq API (Llama 3.1 + 3.3)
+│   ├── api.py                    # FastAPI app (REST API)
+│   ├── main.py                   # CLI indexing pipeline
+│   ├── ingestion/                # GitHub clone
+│   ├── parsers/                  # Tree-sitter + file discovery
+│   ├── extractors/               # AST → knowledge objects
+│   ├── models/                   # Pydantic schemas
+│   ├── embeddings/               # Sentence-transformers
+│   ├── indexing/                 # Embed + upsert to Qdrant
+│   ├── vector_db/                # Qdrant client + search
+│   ├── retrieval/                # Context builder for RAG
+│   ├── router/                   # Small vs large LLM routing
+│   └── llm/                      # Groq (Llama 3.1 / 3.3)
 │
 ├── ekos-frontend/
-│   ├── app/
-│   │   ├── page.tsx              # Landing page
-│   │   └── dashboard/
-│   │       ├── page.tsx          # Dashboard overview
-│   │       ├── repositories/     # Repo list + detail pages
-│   │       ├── chat/             # AI chat interface
-│   │       ├── insights/         # Architecture insights
-│   │       ├── docs/             # Documentation generator
-│   │       ├── upload/           # Repository indexing UI
-│   │       └── settings/         # Configuration
-│   │
+│   ├── app/                      # Next.js App Router pages
 │   ├── components/
+│   │   ├── brand/logo.tsx        # EKOS logo component
 │   │   ├── layout/               # Sidebar, TopBar
-│   │   ├── repository/           # RepoCard, StatsCard, RepoTree
-│   │   ├── chat/                 # ChatMessage with citations
-│   │   └── ui/                   # Button, Card, Badge, Input...
-│   │
-│   └── lib/
-│       ├── utils.ts              # cn() utility
-│       └── dummy-data.ts         # Development mock data
+│   │   ├── repository/           # Repo cards, stats, tree
+│   │   ├── chat/                 # Chat + citations
+│   │   └── ui/                   # shadcn-style primitives
+│   ├── lib/
+│   │   ├── api.ts                # NEXT_PUBLIC_API_URL helper
+│   │   ├── utils.ts
+│   │   └── dummy-data.ts
+│   └── public/
+│       └── ekos-logo.png         # Brand logo + favicon
 │
-├── repos/                        # Cloned repositories (gitignored)
-└── qdrant_data/                  # Local vector database storage
+├── repos/                        # Cloned repos (gitignored)
+├── qdrant_data/                  # Local vector DB (gitignored)
+└── tests/                        # Backend integration tests
 ```
 
 ---
@@ -667,13 +720,10 @@ The extraction quality today determines the reasoning quality tomorrow.
 EKOS is building in public. Contributions, feedback, and ideas are welcome.
 
 ```bash
-# Fork and clone
-git clone https://github.com/your-org/ekos.git
-
-# Create a feature branch
+git clone https://github.com/Therajgupta/EKOS-Engineering-Knowledge-Based-OS-.git
+cd EKOS-Engineering-Knowledge-Based-OS-
 git checkout -b feature/your-feature
-
-# Make changes, then open a PR
+# make changes, commit, open a PR
 ```
 
 Areas where contributions are most valuable:
