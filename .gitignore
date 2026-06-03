@@ -1,0 +1,28 @@
+# Environment and secrets
+.env
+.env.local
+
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Local data (regenerated per machine)
+qdrant_data/
+repos/
+
+# IDE
+.vscode/
+.idea/
+
+# Node (frontend)
+ekos-frontend/node_modules/
+ekos-frontend/.next/
+ekos-frontend/out/
+
+# OS
+.DS_Store
+Thumbs.db
